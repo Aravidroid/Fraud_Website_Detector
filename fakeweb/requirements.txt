@@ -1,0 +1,7 @@
+flask
+python-whois
+requests
+dnspython
+tldextract
+beautifulsoup4
+playwright
