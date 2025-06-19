@@ -34,15 +34,6 @@ document.getElementById('scannerForm').addEventListener('submit', function (e) {
 
             // LLM output fields
             document.getElementById('llm_output').innerText = data.llm_output || "No LLM output.";
-            document.getElementById('question1').innerText = data.question_1 || "N/A";
-            document.getElementById('question2').innerText = data.question_2 || "N/A";
-            document.getElementById('question3').innerText = data.question_3 || "N/A";
-            document.getElementById('question4').innerText = data.question_4 || "N/A";
-            document.getElementById('question5').innerText = data.question_5 || "N/A";
-            document.getElementById('question6').innerText = data.question_6 || "N/A";
-            document.getElementById('question7').innerText = data.question_7 || "N/A";
-            document.getElementById('question8').innerText = data.question_8 || "N/A";
-
             document.getElementById('resultSection').style.display = 'block';
         })
         .catch(err => {
