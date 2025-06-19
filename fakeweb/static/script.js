@@ -1,6 +1,11 @@
-document.getElementById('scannerForm').addEventListener('submit', function(e) {
+document.getElementById('scannerForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    const url = document.getElementById('websiteUrl').value;
+    const url = document.getElementById('websiteUrl').value.trim();
+
+    if (!url) {
+        alert("Please enter a valid website URL.");
+        return;
+    }
 
     fetch('/api/scan', {
         method: 'POST',
@@ -9,31 +14,44 @@ document.getElementById('scannerForm').addEventListener('submit', function(e) {
         },
         body: JSON.stringify({ url: url })
     })
-    .then(response => response.json())
-    .then(data => {
-        document.getElementById('domain').innerText = data.domain;
-        document.getElementById('trustscore').innerText = data.trustscore;
-        document.getElementById('scam_detected').innerText = data.scam_detected ? 'Yes' : 'No';
-        document.getElementById('violations').innerText = data.violations.join(", ");
-        document.getElementById('ip').innerText = data.ip || "N/A";
-        document.getElementById('ssl_valid').innerText = data.ssl_valid ? 'Valid' : 'Invalid';
-        document.getElementById('headers').innerText = data.missing_headers.join(", ");
-        document.getElementById('rating').innerText = data.rating;
-        document.getElementById('reviews').innerText = data.reviews;
-        document.getElementById('angry').innerText = data.feelings.angry;
-        document.getElementById('neutral').innerText = data.feelings.neutral;
-        document.getElementById('happy').innerText = data.feelings.happy;
-        document.getElementById('very_happy').innerText = data.feelings.very_happy;
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('domain').innerText = data.domain || "N/A";
+            document.getElementById('trustscore').innerText = data.trustscore || "N/A";
+            document.getElementById('scam_detected').innerText = (data.scam_detected === "High" || data.scam_detected === true) ? 'Yes' : 'No';
+            document.getElementById('violations').innerText = (data.violations || []).join(", ") || "None";
+            document.getElementById('ip').innerText = data.ip || "N/A";
+            document.getElementById('reverse_dns').innerText = data.reverse_dns || "N/A";
+            document.getElementById('asn').innerText = `${data.asn || "N/A"} - ${data.asn_description || ""}`;
+            document.getElementById('isp').innerText = data.isp_org || "N/A";
+            document.getElementById('country').innerText = data.country || "N/A";
+            document.getElementById('ssl_valid').innerText = data.ssl_valid ? 'Valid' : 'Invalid';
+            document.getElementById('ssl_expiry').innerText = data.cert_expiry ? `${data.cert_expiry} (${data.cert_days_remaining} days left)` : "N/A";
+            document.getElementById('headers').innerText = (data.missing_headers || []).join(", ") || "None";
+            document.getElementById('domain_age').innerText = data.domain_age_days ? `${data.domain_age_days} days` : "N/A";
+            document.getElementById('registrar').innerText = data.domain_registrar || "N/A";
+            document.getElementById('owner').innerText = data.domain_owner || "N/A";
 
-        document.getElementById('resultSection').style.display = 'block';
-    })
-    .catch(err => {
-        alert("Error fetching data from backend");
-        console.error(err);
-    });
+            // LLM output fields
+            document.getElementById('llm_output').innerText = data.llm_output || "No LLM output.";
+            document.getElementById('question1').innerText = data.question_1 || "N/A";
+            document.getElementById('question2').innerText = data.question_2 || "N/A";
+            document.getElementById('question3').innerText = data.question_3 || "N/A";
+            document.getElementById('question4').innerText = data.question_4 || "N/A";
+            document.getElementById('question5').innerText = data.question_5 || "N/A";
+            document.getElementById('question6').innerText = data.question_6 || "N/A";
+            document.getElementById('question7').innerText = data.question_7 || "N/A";
+            document.getElementById('question8').innerText = data.question_8 || "N/A";
+
+            document.getElementById('resultSection').style.display = 'block';
+        })
+        .catch(err => {
+            alert("Error fetching data from backend");
+            console.error("Backend Error:", err);
+        });
 });
 
 function showDisclaimer() {
-  const disclaimer = document.getElementById('disclaimerText');
-  disclaimer.style.display = 'block';
+    const disclaimer = document.getElementById('disclaimerText');
+    disclaimer.style.display = 'block';
 }
