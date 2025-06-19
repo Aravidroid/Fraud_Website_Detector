@@ -3,15 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Website Scanner</title>
+  <title>Fraud Website Detector</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-
 <body>
   <header>
     <div class="header-container">
       <div class="logo">
-        <img src="{{ url_for('static', filename='images/download.jpeg') }}" />
+        <img src="{{ url_for('static', filename='images/download.jpeg') }}" alt="Logo" />
       </div>
       <div class="header-title">
         <h1>Fraud Website Detector</h1>
@@ -21,12 +20,9 @@
 
   <main class="scanner-section">
     <div class="scanner-text">
-      <h1>Stop. Think. <br> Don't get scammed!</h1>
-      <h2>Website scams<br> vulnerability scanner</h2>
-      <p>
-        Get a full website security check for scams, known <br />
-        vulnerabilities and security headers.
-      </p>
+      <h1>Stop. Think. <br>Don't Get Scammed!</h1>
+      <h2>Website Scam & Security Scanner</h2>
+      <p>Get a full security report: scam analysis, IP info, SSL certificate, domain age, and more.</p>
 
       <form id="scannerForm">
         <input type="url" id="websiteUrl" placeholder="Enter website URL..." required />
@@ -34,16 +30,16 @@
       </form>
 
       <div class="links">
-        <a href="#" onclick="showDisclaimer()">DISCLAIMER</a> <br><br>
+        <a href="#" onclick="showDisclaimer()">DISCLAIMER</a><br><br>
         <div id="disclaimerText" style="display:none; margin-bottom: 10px; color: red; font-size: 14px;">
-    This tool offers a preliminary assessment and serves as a helpful indicator, but cannot guarantee absolute accuracy. Always exercise caution and independently verify all information before engaging with any website.
-  </div>
+          This tool provides an initial risk check. Always verify details manually before sharing personal or financial information.
+        </div>
         <a href="{{ url_for('get_money_back') }}">HOW TO GET YOUR MONEY BACK</a>
       </div>
     </div>
 
     <div class="scanner-image">
-      <img src="{{ url_for('static', filename='images/my_image.jpg') }}" alt="Scanner Visual" width="600"/>
+      <img src="{{ url_for('static', filename='images/my_image.jpg') }}" alt="Scanner Visual" width="600" />
     </div>
   </main>
 
@@ -54,17 +50,26 @@
     <p><strong>Scam Detected:</strong> <span id="scam_detected"></span></p>
     <p><strong>Violations:</strong> <span id="violations"></span></p>
     <p><strong>IP Address:</strong> <span id="ip"></span></p>
+    <p><strong>Reverse DNS:</strong> <span id="reverse_dns"></span></p>
+    <p><strong>ASN:</strong> <span id="asn"></span></p>
+    <p><strong>ISP/Org:</strong> <span id="isp"></span></p>
+    <p><strong>Country:</strong> <span id="country"></span></p>
     <p><strong>SSL Valid:</strong> <span id="ssl_valid"></span></p>
+    <p><strong>SSL Expiry:</strong> <span id="ssl_expiry"></span></p>
     <p><strong>Missing Headers:</strong> <span id="headers"></span></p>
-    <p><strong>Rating:</strong> <span id="rating"></span> / 5</p>
-    <p><strong>Reviews:</strong> <span id="reviews"></span></p>
-
-    <div class="feelings" style="display:flex; gap:20px; margin-top:20px;">
-      <div>😡 <br> <span id="angry"></span></div>
-      <div>😐 <br> <span id="neutral"></span></div>
-      <div>😊 <br> <span id="happy"></span></div>
-      <div>😍 <br> <span id="very_happy"></span></div>
-    </div>
+    <p><strong>Domain Age:</strong> <span id="domain_age"></span></p>
+    <p><strong>Registrar:</strong> <span id="registrar"></span></p>
+    <p><strong>Owner:</strong> <span id="owner"></span></p>
+    <p><strong>LLM Summary:</strong> <span id="llm_summary"></span></p>
+    <span id="llm_output"></span>
+    <span id="question1"></span>
+    <span id="question2"></span>
+    <span id="question3"></span>
+    <span id="question4"></span>
+    <span id="question5"></span>
+    <span id="question6"></span>
+    <span id="question7"></span>
+    <span id="question8"></span>
   </section>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
