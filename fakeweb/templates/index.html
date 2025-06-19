@@ -27,7 +27,7 @@
       <form id="scannerForm">
         <input type="url" id="websiteUrl" placeholder="Enter website URL..." required />
         <button type="submit">SCAN</button>
-      </form>
+      </form>   
 
       <div class="links">
         <a href="#" onclick="showDisclaimer()">DISCLAIMER</a><br><br>
@@ -62,14 +62,6 @@
     <p><strong>Owner:</strong> <span id="owner"></span></p>
     <p><strong>LLM Summary:</strong> <span id="llm_summary"></span></p>
     <span id="llm_output"></span>
-    <span id="question1"></span>
-    <span id="question2"></span>
-    <span id="question3"></span>
-    <span id="question4"></span>
-    <span id="question5"></span>
-    <span id="question6"></span>
-    <span id="question7"></span>
-    <span id="question8"></span>
   </section>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
