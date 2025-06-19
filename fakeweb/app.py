@@ -1,4 +1,5 @@
 import re
+import os
 import socket
 import ssl
 import requests
@@ -130,7 +131,6 @@ def scan():
 8. Summary: {llm.get("question_8", "N/A")}
 """.replace("\n", " ").strip()
 
-                result['llm_summary'] = summary_paragraph
             else:
                 result['llm_analysis'] = llm
         else:
@@ -138,6 +138,16 @@ def scan():
     except Exception as e:
         result['llm_analysis'] = f'Error during analysis: {str(e)}'
 
+    try:
+        os.makedirs("scan_results", exist_ok=True)
+        final_filename = os.path.join("scan_results", f"{domain.replace('.', '_')}_report.txt")
+        with open(final_filename, "w", encoding="utf-8") as f:
+            for key, value in result.items():
+                f.write(f"{key}: {value}\n")
+        result['report_file'] = final_filename
+    except Exception as e:
+        result['report_save_error'] = str(e)
+    
     return jsonify(result)
 
 def get_ssl_info(domain):
@@ -172,8 +182,10 @@ def extract_text(html):
         script.decompose()
     return soup.get_text(separator=" ", strip=True)
 
-def scrape_multi_pages(base_url, max_pages=5):
+def scrape_multi_pages(base_url, max_pages=3):
+    print(f"\n Starting to scrape: {base_url}")
     collected_text = ""
+    filename = None
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
@@ -185,6 +197,7 @@ def scrape_multi_pages(base_url, max_pages=5):
             soup = BeautifulSoup(html, "html.parser")
             links = soup.find_all('a', href=True)
             base_domain = urlparse(base_url).netloc
+            domain_clean = base_domain.replace("www.", "").replace(":", "_")
             internal_links = set()
 
             for link in links:
@@ -198,13 +211,20 @@ def scrape_multi_pages(base_url, max_pages=5):
 
             for link in internal_links:
                 try:
+                    print(f"Visiting: {link}")
                     page.goto(link, timeout=10000)
                     html = page.content()
                     collected_text += "\n" + extract_text(html)
                 except Exception:
                     continue
-
             browser.close()
+            
+            os.makedirs("scraped_sites", exist_ok=True)
+            filename = os.path.join("scraped_sites", f"{domain_clean}.txt")
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(collected_text.strip())
+            print(f"Scraped content saved to {filename}")
+            
     except Exception as e:
         print("Scraping Error:", e)
 
@@ -246,6 +266,7 @@ def parse_llm_answers(response_text):
             output[f"question_{i}"] = match.group(1).strip()
         else:
             output[f"question_{i}"] = "N/A"
+            
     output["llm_output"] = response_text.strip()
     return output
 
