@@ -190,7 +190,7 @@ def scrape_multi_pages(base_url, max_pages=3):
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
-            page.goto(base_url, timeout=10000)
+            page.goto(base_url, timeout=10000, wait_until='domcontentloaded')
             html = page.content()
             collected_text += extract_text(html)
 
@@ -212,13 +212,13 @@ def scrape_multi_pages(base_url, max_pages=3):
             for link in internal_links:
                 try:
                     print(f"Visiting: {link}")
-                    page.goto(link, timeout=10000)
+                    page.goto(link, timeout=10000, wait_until='domcontentloaded')
                     html = page.content()
                     collected_text += "\n" + extract_text(html)
                 except Exception:
                     continue
             browser.close()
-            
+        
             os.makedirs("scraped_sites", exist_ok=True)
             filename = os.path.join("scraped_sites", f"{domain_clean}.txt")
             with open(filename, "w", encoding="utf-8") as f:
@@ -237,10 +237,9 @@ Analyze the website content from domain '{domain}' and answer the following 8 qu
 2. Are there any signs that indicate it may be a scam?
 3. How trustworthy does the site appear based on language, offers, and structure?
 4. Are there any red flags in the site's content or claims?
-5. What is the scam risk level (High, Medium, Low)?
-6. Why do you say it’s a scam or not?
-7. Rate this site from 1 to 5 based on trustworthiness.
-8. Give 3 lines about the website and its potential risk.
+5. Why do you say it’s a scam or not?
+6. Rate this site from out of 5 based on trustworthiness.
+7. Give 3 lines about the website and its potential risk.
 
 Website Text:
 {text[:7000]}
