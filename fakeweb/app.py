@@ -12,11 +12,52 @@ from playwright.sync_api import sync_playwright
 import datetime
 from datetime import timezone
 import OpenSSL
+import json
+import logging
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "HammerAI/openhermes-2.5-mistral"
+MODEL_NAME = "gemma3:4b"
+
+class FeatureExtraction:
+    def __init__(self, url):
+        self.url = url
+        self.urlparse = urlparse(url)
+        self.domain = self.urlparse.netloc
+        self.response = None
+        self.soup = None
+        try:
+            self.response = requests.get(url, timeout=5)
+            self.soup = BeautifulSoup(self.response.text, 'html.parser')
+        except requests.exceptions.RequestException:
+            pass
+
+    def getFeaturesDict(self):
+        try:
+            return {
+                "UsingIp": validators.ipv4(self.domain) or validators.ipv6(self.domain),
+                "LongURLLength": len(self.url),
+                "ShortenerUsed": any(short in self.url for short in [
+                    'bit.ly', 'goo.gl', 'tinyurl.com', 'ow.ly', 't.co', 'bit.do', 'adf.ly'
+                ]),
+                "HasAtSymbol": '@' in self.url,
+                "DoubleSlashRedirect": self.url.rfind('//') > 6,
+                "PrefixSuffixInDomain": '-' in self.domain,
+                "SubdomainCount": self.domain.count('.'),
+                "UsesHTTPS": self.url.startswith('https'),
+                "HasFavicon": any('favicon' in link['href'].lower() for link in self.soup.find_all('link', href=True)) if self.soup else False,
+                "NonStandardPort": ':' in self.urlparse.netloc and not self.url.startswith("https://"),
+                "HTTPSInDomain": 'https' in self.domain.lower(),
+                "FormWithBlankAction": any(form['action'] in ["", "about:blank"] for form in self.soup.find_all('form', action=True)) if self.soup else False,
+                "RightClickDisabled": bool(re.search("event.button ?== ?2", self.response.text)) if self.response else False,
+                "HasPopup": bool(re.search(r"alert\\(", self.response.text)) if self.response else False,
+                "HasIframe": bool(self.soup.find_all('iframe')) if self.soup else False,
+                "CountExternalLinks": sum(1 for a in self.soup.find_all('a', href=True) if self.domain not in a['href']) if self.soup else 0
+            }
+        except Exception as e:
+            return {"feature_extraction_error": str(e)}
 
 @app.route('/')
 def index():
@@ -108,33 +149,50 @@ def scan():
         if text:
             ext = tldextract.extract(url)
             domain_clean = f"{ext.domain}.{ext.suffix}"
-            llm = analyze_intent_llama(text, domain_clean)
-            if isinstance(llm, dict):
-                result.update(llm)
 
-                trust_raw = llm.get("question_7", "")
-                match = re.search(r'(\d+)', trust_raw)
-                trustscore = int(match.group(1)) if match else "N/A"
+        llm_input = {
+            "domain": domain,
+            "ip": ip,
+            "reverse_dns": result.get("reverse_dns"),
+            "asn": result.get("asn"),
+            "asn_description": result.get("asn_description"),
+            "isp_org": result.get("isp_org"),
+            "country": result.get("country"),
+            "ssl_valid": result.get("ssl_valid"),
+            "cert_expiry": result.get("cert_expiry"),
+            "cert_days_remaining": result.get("cert_days_remaining"),
+            "missing_headers": result.get("missing_headers"),
+            "domain_creation_date": result.get("domain_creation_date"),
+            "domain_age_days": result.get("domain_age_days"),
+            "domain_registrar": result.get("domain_registrar"),
+            "domain_owner": result.get("domain_owner"),
+            "heuristics": FeatureExtraction(url).getFeaturesDict(),
+            "text_content": text[:5000]
+        }
 
-                result['trustscore'] = trustscore
-                result['risk_level'] = llm.get("question_5", "Unknown")
-                result['summary'] = llm.get("question_8", "N/A")
+        llm = analyze_intent_llama(llm_input)
+        if isinstance(llm, dict):
+            result.update(llm)
 
-                summary_paragraph = f"""
+            trust_raw = llm.get("question_6", "")
+            match = re.search(r'(\d+)', trust_raw)
+            trustscore = int(match.group(1)) if match else "N/A"
+            result['trustscore'] = trustscore
+            result['risk_level'] = llm.get("question_5", "Unknown")
+            result['summary'] = llm.get("question_7", "N/A")
+
+            summary_paragraph = f"""
 1. {llm.get("question_1", "N/A")}
 2. {llm.get("question_2", "N/A")}
 3. {llm.get("question_3", "N/A")}
 4. {llm.get("question_4", "N/A")}
 5. Scam Risk: {llm.get("question_5", "N/A")}
-6. Reasoning: {llm.get("question_6", "N/A")}
-7. Trust Score: {llm.get("question_7", "N/A")} stars
-8. Summary: {llm.get("question_8", "N/A")}
+6. Trust Score: {llm.get("question_6", "N/A")} stars
+7. Summary: {llm.get("question_7", "N/A")}
 """.replace("\n", " ").strip()
 
-            else:
-                result['llm_analysis'] = llm
         else:
-            result['llm_analysis'] = 'Could not scrape site.'
+            result['llm_analysis'] = llm
     except Exception as e:
         result['llm_analysis'] = f'Error during analysis: {str(e)}'
 
@@ -147,7 +205,7 @@ def scan():
         result['report_file'] = final_filename
     except Exception as e:
         result['report_save_error'] = str(e)
-    
+
     return jsonify(result)
 
 def get_ssl_info(domain):
@@ -230,42 +288,83 @@ def scrape_multi_pages(base_url, max_pages=3):
 
     return collected_text.strip()
 
-def analyze_intent_llama(text, domain):
-    prompt = f"""
-Analyze the website content from domain '{domain}' and answer the following 8 questions:
-1. What is the website offering?
-2. Are there any signs that indicate it may be a scam?
-3. How trustworthy does the site appear based on language, offers, and structure?
-4. Are there any red flags in the site's content or claims?
-5. Why do you say it’s a scam or not?
-6. Rate this site from out of 5 based on trustworthiness.
-7. Give 3 lines about the website and its potential risk.
+def analyze_intent_llama(llm_input):
+    tech_info = f"""
+DOMAIN INFORMATION:
+- Domain: {llm_input['domain']}
+- IP: {llm_input['ip']}
+- Reverse DNS: {llm_input['reverse_dns']}
+- ASN: {llm_input['asn']} ({llm_input['asn_description']})
+- ISP/Org: {llm_input['isp_org']}
+- Country: {llm_input['country']}
 
-Website Text:
-{text[:7000]}
+WHOIS INFO:
+- Creation Date: {llm_input['domain_creation_date']}
+- Domain Age (days): {llm_input['domain_age_days']}
+- Registrar: {llm_input['domain_registrar']}
+- Owner: {llm_input['domain_owner']}
+
+SSL CERTIFICATE:
+- Valid: {llm_input['ssl_valid']}
+- Expiry: {llm_input['cert_expiry']}
+- Days Remaining: {llm_input['cert_days_remaining']}
+
+SECURITY HEADERS:
+- Missing Headers: {', '.join(llm_input['missing_headers'])}
+
+FEATURE HEURISTICS:
+- {json.dumps(llm_input['heuristics'], indent=2)}
+"""
+
+    prompt = f"""
+Based on the following technical data and website content, evaluate whether the site is trustworthy or potentially a scam.
+
+{tech_info}
+
+SCRAPED WEBSITE TEXT:
+{llm_input['text_content']}
+
+Answer the following questions:
+1. What does this site appear to offer?
+2. Are there technical red flags (SSL, Whois, IP, headers)?
+3. Are there content-based scam indicators (language, layout, urgency)?
+4. Are heuristic flags like popups, iframes, IP usage, or shorteners present?
+5. Overall, is this site safe or suspicious?
+6. Give a trustworthiness score out of 5 and justify it.
+7. Summarize in 3 lines what a user should know before trusting this site.
 """
     try:
+        logging.debug("\n=== SENDING PROMPT TO OLLAMA ===")
+        logging.debug(prompt[:1000] + '... [truncated]' if len(prompt) > 1000 else prompt)
         response = requests.post(
             OLLAMA_API_URL,
             json={"model": MODEL_NAME, "prompt": prompt, "stream": False}
         )
+        print(f"\n=== OLLAMA RESPONSE STATUS: {response.status_code} ===")
         if response.status_code == 200:
             content = response.json().get("response", "")
+            print("\n Raw LLM Response:")
+            print(content.strip())
             return parse_llm_answers(content)
         else:
+            print("\n=== OLLAMA ERROR RESPONSE ===")
+            print(response.text)
             return {"llm_error": f"Ollama error: {response.text}"}
     except Exception as e:
+        print("\n=== EXCEPTION TALKING TO OLLAMA ===")
+        print(str(e))
         return {"llm_error": str(e)}
 
 def parse_llm_answers(response_text):
+    print("Parsing LLM Response:")
     output = {}
     for i in range(1, 9):
-        match = re.search(rf"{i}\.\s*(.*?)\s*(?=\n\d\.|$)", response_text, re.DOTALL)
+        match = re.search(rf"{i}\.\\s*(.*?)\\s*(?=\\n\\d\\.|$)", response_text, re.DOTALL)
         if match:
             output[f"question_{i}"] = match.group(1).strip()
         else:
             output[f"question_{i}"] = "N/A"
-            
+
     output["llm_output"] = response_text.strip()
     return output
 
